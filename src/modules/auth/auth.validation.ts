@@ -19,5 +19,8 @@ const registerSchema = z.object({
     .string()
     .min(8, { message: "Password must be at least 8 characters long" }),
 });
+const resendOtpSchema = z.object({
+  email: z.email({ message: "Invalid email address" }),
+});
 
-export { loginSchema, registerSchema, verifyEmailSchema };
+export { loginSchema, registerSchema, verifyEmailSchema, resendOtpSchema };

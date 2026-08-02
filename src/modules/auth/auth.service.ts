@@ -75,4 +75,74 @@ const registerUser = async ({ fullName, email, password }: IRegisterUser) => {
   };
 };
 
-export { registerUser };
+const resendOtp = async ({ email }: { email: string }) => {
+  const cooldownKey = `otp-cooldown:${email}`;
+
+  const isCooldownActive = await redisClient.exists(cooldownKey);
+
+  // check if the cooldown is active
+  if (isCooldownActive) {
+    const ttl = await redisClient.ttl(cooldownKey);
+
+    throw new ApiError(
+      429,
+      `Please wait ${ttl} seconds before requesting another OTP`,
+    );
+  }
+
+  // Check if the user data exists in Redis
+  const userDataString = await redisClient.get(`register:${email}`);
+
+  if (!userDataString) {
+    throw new ApiError(400, "No registration data found for this email");
+  }
+
+  const userData = JSON.parse(userDataString);
+
+  // Generate a new OTP
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+  try {
+    // Set a new cooldown for the resend OTP request
+    const isCooldownSet = await redisClient.set(
+      cooldownKey,
+      "true",
+      "EX",
+      OTP_COOLDOWN,
+      "NX",
+    );
+
+    if (!isCooldownSet) {
+      throw new ApiError(429, "Please wait before requesting another OTP");
+    }
+
+    // Update the user data in Redis with the new OTP and reset the expiration time
+    await redisClient.set(
+      `register:${email}`,
+      JSON.stringify({ ...userData, otp }),
+      "EX",
+      900,
+    );
+
+    // Send the new OTP email
+    await emailQueue.add("send-otp", {
+      firstName: userData.fullName.split(" ")[0],
+      email,
+      otp,
+    });
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    // Remove cooldown if sending fails
+    await redisClient.del(cooldownKey);
+    throw new ApiError(500, "Failed to resend OTP");
+  }
+
+  return {
+    email,
+    message: "OTP resent to your email. OTP is valid for 15 minutes.",
+  };
+};
+
+export { registerUser, resendOtp };
