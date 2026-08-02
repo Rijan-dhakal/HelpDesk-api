@@ -7,6 +7,12 @@ const redisClient = new Redis({
   port: Number(env.REDIS_PORT),
 });
 
+const bullmqRedisConnection = new Redis({
+  host: env.REDIS_HOST,
+  port: Number(env.REDIS_PORT),
+  maxRetriesPerRequest: null,
+});
+
 redisClient.on("connect", () => {
   logger.info("Redis client connected");
 });
@@ -15,4 +21,4 @@ redisClient.on("error", (err) => {
   logger.error({ err }, "Redis client error");
 });
 
-export { redisClient };
+export { redisClient, bullmqRedisConnection };
