@@ -9,7 +9,14 @@ const loginSchema = z.object({
 
 const verifyEmailSchema = z.object({
   email: z.email({ message: "Invalid email address" }),
-  otp: z.string().min(6, { message: "OTP must be at least 6 characters long" }),
+  otp: z.union([
+    z.string().length(6, { message: "OTP must be 6 characters long" }),
+    z
+      .number()
+      .int()
+      .min(100000, { message: "OTP must be a 6 characters long" })
+      .max(999999, { message: "OTP must be a 6 characters long" }),
+  ]),
 });
 
 const registerSchema = z.object({

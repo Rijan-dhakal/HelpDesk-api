@@ -145,4 +145,40 @@ const resendOtp = async ({ email }: { email: string }) => {
   };
 };
 
-export { registerUser, resendOtp };
+const verifyEmail = async ({ email, otp }: { email: string; otp: string }) => {
+  const userData = await redisClient.get(`register:${email}`);
+
+  if (!userData) {
+    throw new ApiError(400, "Data not found for this email");
+  }
+
+  const parsedData = JSON.parse(userData);
+
+  if (parsedData.otp !== otp) {
+    throw new ApiError(400, "Invalid OTP");
+  }
+
+  // Create the user in the database
+  const newUser = await prisma.user.create({
+    data: {
+      fullName: parsedData.fullName,
+      email: parsedData.email,
+      password: parsedData.password,
+    },
+  });
+
+  // Clean up Redis data after successful registration
+  await redisClient.del(`register:${email}`);
+  await redisClient.del(`otp-cooldown:${email}`);
+
+  return {
+    message: "User registered successfully",
+    user: {
+      id: newUser.id,
+      fullName: newUser.fullName,
+      email: newUser.email,
+    },
+  };
+};
+
+export { registerUser, resendOtp, verifyEmail };
