@@ -1,4 +1,4 @@
-import type { NextFunction } from "express";
+import type { NextFunction, Request, Response } from "express";
 import { ApiError } from "../utils/apiError";
 import { type ZodError, z } from "zod";
 
@@ -8,18 +8,24 @@ const formatZodError = (error: ZodError): string => {
     .join(", ");
 };
 
-const validate = (schema: z.ZodTypeAny) => {
+const validateSchema = (schema: z.ZodTypeAny) => {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.body || Object.keys(req.body).length === 0) {
-      return next(new ApiError(400, "Request body is required"));
+      return res
+        .status(400)
+        .json({ success: false, message: "Request body is required" });
     }
 
     const result = schema.safeParse(req.body);
 
     if (!result.success) {
-      return next(new ApiError(400, formatZodError(result.error)));
+      return res
+        .status(400)
+        .json({ success: false, message: formatZodError(result.error) });
     }
 
     next();
   };
 };
+
+export { validateSchema };

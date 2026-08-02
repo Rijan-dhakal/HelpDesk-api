@@ -5,6 +5,7 @@ import { connectDB } from "./config/prisma";
 import { initSocket } from "./config/socket";
 import { setupSocketHandler } from "./realtime/server.socket";
 import { logger } from "./config/logger";
+import "./workers/email.worker";
 
 const port = process.env.PORT || 3000;
 

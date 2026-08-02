@@ -5,12 +5,14 @@ import { emailQueue } from "../../queues/email.queue";
 import { ApiError } from "../../utils/apiError";
 
 interface IRegisterUser {
-  name: string;
+  fullName: string;
   email: string;
   password: string;
 }
 
-const registerUser = async ({ name, email, password }: IRegisterUser) => {
+const OTP_COOLDOWN = 120; // 120 seconds cooldown for resend OTP
+
+const registerUser = async ({ fullName, email, password }: IRegisterUser) => {
   // Check if user with the same email already exists
   const existingUser = await prisma.user.findUnique({
     where: { email },
@@ -25,23 +27,51 @@ const registerUser = async ({ name, email, password }: IRegisterUser) => {
 
   const hashedPassword = await bcrypt.hash(password, 10);
 
-  // Save otp in Redis with a 15 minute expiration
-  await redisClient.set(
-    `register:${email}`,
-    JSON.stringify({ name, email, password: hashedPassword, otp }),
-    "EX",
-    900,
-  );
+  try {
+    // check if the user details is in redis or not
+    const isCreated = await redisClient.set(
+      `register:${email}`,
+      JSON.stringify({
+        fullName,
+        email,
+        password: hashedPassword,
+        otp,
+      }),
+      "EX",
+      900,
+      "NX",
+    );
 
-  // Add job to email queue
-  await emailQueue.add("send-otp", {
-    email,
-    otp,
-  });
+    if (!isCreated) {
+      throw new ApiError(
+        400,
+        "OTP already sent. Please wait for 15 minutes before requesting a new OTP.",
+      );
+    }
+
+    // Set a cooldown for the resend OTP request
+    await redisClient.set(`otp-cooldown:${email}`, "true", "EX", OTP_COOLDOWN);
+
+    // queue the otp email to be sent
+    await emailQueue.add("send-otp", {
+      firstName: fullName.split(" ")[0],
+      email,
+      otp,
+    });
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+
+    await redisClient.del(`otp-cooldown:${email}`);
+    await redisClient.del(`register:${email}`);
+
+    throw new ApiError(500, "Failed to send OTP");
+  }
 
   return {
     email,
-    message: "OTP sent to your email.",
+    message: "OTP sent to your email. OTP is valid for 15 minutes. ",
   };
 };
 

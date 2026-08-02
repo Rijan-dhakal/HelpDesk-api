@@ -5,6 +5,7 @@ import "dotenv/config";
 import { notFoundMiddleware } from "./middleware/notFound.middleware";
 import { errorHandler } from "./middleware/error.middleware";
 import { checkHealth } from "./modules/health/checkHealth";
+import { authRouter } from "./modules/auth/auth.route";
 
 const app = express();
 
@@ -22,6 +23,7 @@ app.use(helmet());
 
 // Routes
 app.get("/api/health", checkHealth);
+app.use("/api/auth", authRouter);
 
 // Global Middleware for handling errors
 app.use(notFoundMiddleware);
