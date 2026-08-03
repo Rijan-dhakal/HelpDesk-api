@@ -3,14 +3,16 @@ import { asyncHandler } from "../../utils/asyncHandler";
 import { env } from "../../config/env";
 import {
   forgotPasswordService,
-  loginUser,
-  registerUser,
-  resendOtp,
-  verifyEmail,
+  loginUserService,
+  registerUserService,
+  resendOtpService,
+  resetPasswordService,
+  verifyEmailService,
 } from "./auth.service";
+import { resetPasswordQuerySchema } from "./auth.validation";
 
 const register = asyncHandler(async (req: Request, res: Response) => {
-  const { email, message } = await registerUser(req.body);
+  const { email, message } = await registerUserService(req.body);
   res.status(200).json({
     success: true,
     message: message,
@@ -21,7 +23,7 @@ const register = asyncHandler(async (req: Request, res: Response) => {
 });
 
 const resendOTP = asyncHandler(async (req: Request, res: Response) => {
-  const { email, message } = await resendOtp(req.body);
+  const { email, message } = await resendOtpService(req.body);
   res.status(200).json({
     success: true,
     message: message,
@@ -32,7 +34,7 @@ const resendOTP = asyncHandler(async (req: Request, res: Response) => {
 });
 
 const verify = asyncHandler(async (req: Request, res: Response) => {
-  const { message, user } = await verifyEmail(req.body);
+  const { message, user } = await verifyEmailService(req.body);
   res.status(200).json({
     success: true,
     message,
@@ -41,7 +43,7 @@ const verify = asyncHandler(async (req: Request, res: Response) => {
 });
 
 const login = asyncHandler(async (req: Request, res: Response) => {
-  const { message, token, user } = await loginUser(req.body);
+  const { message, token, user } = await loginUserService(req.body);
   res.cookie("access_token", token, {
     httpOnly: true,
     secure: env.NODE_ENV === "production",
@@ -62,4 +64,31 @@ const forgotPassword = asyncHandler(async (req: Request, res: Response) => {
   });
 });
 
-export { register, resendOTP, verify, login, forgotPassword };
+const resetPassword = asyncHandler(async (req: Request, res: Response) => {
+  const { newPassword } = req.body;
+
+  const result = resetPasswordQuerySchema.safeParse(req.query);
+  if (!result.success) {
+    const issue = result.error.issues[0];
+    return res.status(400).json({
+      success: false,
+      message: issue
+        ? ` ${issue.path.join(".")}: ${issue.message}`
+        : "Token not found in query",
+    });
+  }
+
+  const parsedData = result.data;
+
+  const { message } = await resetPasswordService({
+    token: parsedData.token,
+    newPassword,
+  });
+
+  return res.status(200).json({
+    success: true,
+    message,
+  });
+});
+
+export { register, resendOTP, verify, login, forgotPassword, resetPassword };

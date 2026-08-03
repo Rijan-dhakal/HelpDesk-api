@@ -4,6 +4,7 @@ import {
   login,
   register,
   resendOTP,
+  resetPassword,
   verify,
 } from "./auth.controller";
 import { validateSchema } from "../../middleware/validate.middleware";
@@ -12,6 +13,7 @@ import {
   loginSchema,
   registerSchema,
   resendOtpSchema,
+  resetPasswordSchema,
   verifyEmailSchema,
 } from "./auth.validation";
 
@@ -25,6 +27,11 @@ authRouter.post(
   "/forgot-password",
   validateSchema(forgotPasswordSchema),
   forgotPassword,
+);
+authRouter.post(
+  "/reset-password",
+  validateSchema(resetPasswordSchema),
+  resetPassword,
 );
 
 export { authRouter };

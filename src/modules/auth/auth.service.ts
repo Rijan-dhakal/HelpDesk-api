@@ -23,9 +23,18 @@ interface ILoginUser {
   password: string;
 }
 
+interface IResetPassword {
+  token: string;
+  newPassword: string;
+}
+
 const OTP_COOLDOWN = 120; // 120 seconds cooldown for resend OTP
 
-const registerUser = async ({ fullName, email, password }: IRegisterUser) => {
+const registerUserService = async ({
+  fullName,
+  email,
+  password,
+}: IRegisterUser) => {
   // Check if user with the same email already exists
   const existingUser = await prisma.user.findUnique({
     where: { email },
@@ -88,7 +97,7 @@ const registerUser = async ({ fullName, email, password }: IRegisterUser) => {
   };
 };
 
-const resendOtp = async ({ email }: { email: string }) => {
+const resendOtpService = async ({ email }: { email: string }) => {
   const cooldownKey = `otp-cooldown:${email}`;
 
   const isCooldownActive = await redisClient.exists(cooldownKey);
@@ -158,7 +167,7 @@ const resendOtp = async ({ email }: { email: string }) => {
   };
 };
 
-const verifyEmail = async ({ email, otp }: IVerifyEmail) => {
+const verifyEmailService = async ({ email, otp }: IVerifyEmail) => {
   const userData = await redisClient.get(`register:${email}`);
 
   if (!userData) {
@@ -176,6 +185,7 @@ const verifyEmail = async ({ email, otp }: IVerifyEmail) => {
     data: {
       fullName: parsedData.fullName,
       email: parsedData.email,
+      // password is already hashed before storing in redis, so we can directly use it here
       password: parsedData.password,
     },
   });
@@ -194,7 +204,7 @@ const verifyEmail = async ({ email, otp }: IVerifyEmail) => {
   };
 };
 
-const loginUser = async ({ email, password }: ILoginUser) => {
+const loginUserService = async ({ email, password }: ILoginUser) => {
   const user = await prisma.user.findUnique({
     where: { email },
   });
@@ -289,10 +299,40 @@ const forgotPasswordService = async ({ email }: { email: string }) => {
   };
 };
 
+const resetPasswordService = async ({ token, newPassword }: IResetPassword) => {
+  // hash the token before checking it in redis
+  const hashedToken = hashToken(token);
+
+  // check if the token exists in redis
+  const email = await redisClient.get(`reset-password:${hashedToken}`);
+
+  if (!email) {
+    throw new ApiError(400, "Invalid or expired reset token");
+  }
+
+  // hash the new password
+  const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+  // update the user password in the database
+  await prisma.user.update({
+    where: { email },
+    data: { password: hashedPassword },
+  });
+
+  // delete the reset token from redis after successful password reset
+  await redisClient.del(`reset-password:${hashedToken}`);
+  await redisClient.del(`password-reset-cooldown:${email}`);
+
+  return {
+    message: "Password reset successful",
+  };
+};
+
 export {
-  registerUser,
-  resendOtp,
-  verifyEmail,
-  loginUser,
+  registerUserService,
+  resendOtpService,
+  verifyEmailService,
+  loginUserService,
   forgotPasswordService,
+  resetPasswordService,
 };
