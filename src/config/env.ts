@@ -11,5 +11,6 @@ export const env = z
     EMAIL_FROM: z.string(),
     JWT_SECRET: z.string().min(32),
     JWT_EXPIRES_IN: z.string(),
+    FRONTEND_URL: z.url(),
   })
   .parse(process.env);

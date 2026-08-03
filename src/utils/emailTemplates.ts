@@ -1,3 +1,5 @@
+import { env } from "../config/env";
+
 export const registerEmailTemplate = (name: string, otp: string) => {
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 10px;">
@@ -52,7 +54,10 @@ If you did not request this account, you can ignore this email.
   return { html, text };
 };
 
-export const passwordResetEmailTemplate = (name: string, resetUrl: string) => {
+export const passwordResetEmailTemplate = (
+  name: string,
+  resetToken: string,
+) => {
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 10px;">
       <h2 style="color: #2563eb;">Reset your HelpDesk password</h2>
@@ -68,7 +73,7 @@ export const passwordResetEmailTemplate = (name: string, resetUrl: string) => {
 
       <div style="text-align: center; margin: 30px 0;">
         <a
-          href="${resetUrl}"
+          href="${env.FRONTEND_URL}/reset-password?token=${resetToken}"
           style="
             display: inline-block;
             background: #2563eb;
@@ -100,7 +105,7 @@ export const passwordResetEmailTemplate = (name: string, resetUrl: string) => {
       </p>
 
       <p style="font-size: 13px; color: #2563eb; word-break: break-all;">
-        ${resetUrl}
+        ${env.FRONTEND_URL}/reset-password?token=${resetToken}
       </p>
 
       <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;" />
@@ -117,7 +122,7 @@ Hi ${name},
 We received a request to reset your HelpDesk password.
 
 Reset your password using this link:
-${resetUrl}
+${env.FRONTEND_URL}/reset-password?token=${resetToken}
 
 This password reset link will expire in 5 minutes.
 

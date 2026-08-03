@@ -229,21 +229,43 @@ const loginUser = async ({ email, password }: ILoginUser) => {
 };
 
 const forgotPasswordService = async ({ email }: { email: string }) => {
+  //  Check if user exist
   const user = await prisma.user.findUnique({
     where: { email },
   });
 
+  //  return message even if user does not exist to prevent email enumeration
   if (!user) {
     return {
-      message: "If the email exists, a password reset link will be sent.",
+      message:
+        "Password reset link sent to your email. Link is valid for 5 minutes.",
     };
   }
 
+  // cooldown key for redis to limit multiple request
+  const cooldownKey = `password-reset-cooldown:${email}`;
+
+  // check if the cooldown is active
+  const exists = await redisClient.exists(cooldownKey);
+
+  // if cooldown is active prevent sending another email
+  if (exists) {
+    const ttl = await redisClient.ttl(cooldownKey);
+
+    throw new ApiError(
+      400,
+      `Please wait ${ttl} seconds before requesting another reset email.`,
+    );
+  }
+
+  // generate random token
   const resetToken = crypto.randomBytes(32).toString("hex");
 
+  // hash the token before storing it in redis
   const hashedToken = hashToken(resetToken);
 
-  const isResetTokenSet = await redisClient.set(
+  // store the hashed token in redis
+  await redisClient.set(
     `reset-password:${hashedToken}`,
     email,
     "EX",
@@ -251,15 +273,10 @@ const forgotPasswordService = async ({ email }: { email: string }) => {
     "NX",
   );
 
-  if (!isResetTokenSet) {
-    const ttl = await redisClient.ttl(`reset-password:${hashedToken}`);
+  // set cooldown after sending the email
+  await redisClient.set(cooldownKey, "true", "EX", 300, "NX");
 
-    throw new ApiError(
-      400,
-      `Wait for ${ttl} seconds before requesting another password reset.`,
-    );
-  }
-
+  // queue the password reset email to be sent
   await emailQueue.add("send-reset-password", {
     firstName: user.fullName.split(" ")[0],
     email,

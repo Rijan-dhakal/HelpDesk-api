@@ -20,11 +20,11 @@ const emailWorker = new Worker(
         break;
       }
 
-      case "send-password-reset": {
-        const { email, resetUrl, firstName } = job.data;
+      case "send-reset-password": {
+        const { email, resetToken, firstName } = job.data;
         const subject = "Reset Your Password";
-        const html = passwordResetEmailTemplate(firstName, resetUrl).html;
-        const text = passwordResetEmailTemplate(firstName, resetUrl).text;
+        const html = passwordResetEmailTemplate(firstName, resetToken).html;
+        const text = passwordResetEmailTemplate(firstName, resetToken).text;
         await sendEmail(email, subject, html, text);
         break;
       }
