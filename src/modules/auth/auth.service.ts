@@ -1,11 +1,24 @@
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import { prisma } from "../../config/prisma";
 import { redisClient } from "../../config/redis";
 import { emailQueue } from "../../queues/email.queue";
 import { ApiError } from "../../utils/apiError";
+import { generateToken } from "../../helper/jwt";
+import { hashToken } from "../../helper/hash-reset-token";
 
 interface IRegisterUser {
   fullName: string;
+  email: string;
+  password: string;
+}
+
+interface IVerifyEmail {
+  email: string;
+  otp: string;
+}
+
+interface ILoginUser {
   email: string;
   password: string;
 }
@@ -145,7 +158,7 @@ const resendOtp = async ({ email }: { email: string }) => {
   };
 };
 
-const verifyEmail = async ({ email, otp }: { email: string; otp: string }) => {
+const verifyEmail = async ({ email, otp }: IVerifyEmail) => {
   const userData = await redisClient.get(`register:${email}`);
 
   if (!userData) {
@@ -181,4 +194,88 @@ const verifyEmail = async ({ email, otp }: { email: string; otp: string }) => {
   };
 };
 
-export { registerUser, resendOtp, verifyEmail };
+const loginUser = async ({ email, password }: ILoginUser) => {
+  const user = await prisma.user.findUnique({
+    where: { email },
+  });
+
+  if (!user) {
+    throw new ApiError(400, "Invalid email or password");
+  }
+
+  const isPasswordValid = await bcrypt.compare(password, user.password);
+
+  if (!isPasswordValid) {
+    throw new ApiError(400, "Invalid email or password");
+  }
+
+  // generate jwt token
+  const token = generateToken({ userId: user.id, role: user.role });
+
+  if (!token) {
+    throw new ApiError(500, "Failed to generate token");
+  }
+
+  return {
+    message: "Login successful",
+    token,
+    user: {
+      id: user.id,
+      fullName: user.fullName,
+      email: user.email,
+      role: user.role,
+    },
+  };
+};
+
+const forgotPasswordService = async ({ email }: { email: string }) => {
+  const user = await prisma.user.findUnique({
+    where: { email },
+  });
+
+  if (!user) {
+    return {
+      message: "If the email exists, a password reset link will be sent.",
+    };
+  }
+
+  const resetToken = crypto.randomBytes(32).toString("hex");
+
+  const hashedToken = hashToken(resetToken);
+
+  const isResetTokenSet = await redisClient.set(
+    `reset-password:${hashedToken}`,
+    email,
+    "EX",
+    300,
+    "NX",
+  );
+
+  if (!isResetTokenSet) {
+    const ttl = await redisClient.ttl(`reset-password:${hashedToken}`);
+
+    throw new ApiError(
+      400,
+      `Wait for ${ttl} seconds before requesting another password reset.`,
+    );
+  }
+
+  await emailQueue.add("send-reset-password", {
+    firstName: user.fullName.split(" ")[0],
+    email,
+    resetToken,
+  });
+
+  return {
+    message:
+      "Password reset link sent to your email. Link is valid for 5 minutes.",
+  };
+};
+
+export {
+  registerUser,
+  resendOtp,
+  verifyEmail,
+  loginUser,
+  forgotPasswordService,
+};

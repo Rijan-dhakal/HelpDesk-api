@@ -1,6 +1,7 @@
 import express from "express";
 import helmet from "helmet";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import "dotenv/config";
 import { notFoundMiddleware } from "./middleware/notFound.middleware";
 import { errorHandler } from "./middleware/error.middleware";
@@ -17,9 +18,10 @@ app.use(
 );
 
 //  Middlewares
+app.use(helmet());
+app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(helmet());
 
 // Routes
 app.get("/api/health", checkHealth);

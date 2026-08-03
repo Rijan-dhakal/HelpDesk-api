@@ -1,6 +1,13 @@
 import type { Request, Response } from "express";
 import { asyncHandler } from "../../utils/asyncHandler";
-import { registerUser, resendOtp, verifyEmail } from "./auth.service";
+import { env } from "../../config/env";
+import {
+  forgotPasswordService,
+  loginUser,
+  registerUser,
+  resendOtp,
+  verifyEmail,
+} from "./auth.service";
 
 const register = asyncHandler(async (req: Request, res: Response) => {
   const { email, message } = await registerUser(req.body);
@@ -33,4 +40,26 @@ const verify = asyncHandler(async (req: Request, res: Response) => {
   });
 });
 
-export { register, resendOTP, verify };
+const login = asyncHandler(async (req: Request, res: Response) => {
+  const { message, token, user } = await loginUser(req.body);
+  res.cookie("access_token", token, {
+    httpOnly: true,
+    secure: env.NODE_ENV === "production",
+    sameSite: "strict",
+  });
+  res.status(200).json({
+    success: true,
+    message,
+    data: user,
+  });
+});
+
+const forgotPassword = asyncHandler(async (req: Request, res: Response) => {
+  const { message } = await forgotPasswordService(req.body);
+  res.status(200).json({
+    success: true,
+    message,
+  });
+});
+
+export { register, resendOTP, verify, login, forgotPassword };

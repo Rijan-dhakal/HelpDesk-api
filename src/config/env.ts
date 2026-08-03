@@ -1,9 +1,15 @@
-export const env = {
-  PORT: process.env.PORT,
-  DATABASE_URL: process.env.DATABASE_URL,
-  REDIS_HOST: process.env.REDIS_HOST,
-  REDIS_PORT: process.env.REDIS_PORT,
-  NODE_ENV: process.env.NODE_ENV,
-  RESEND_API_KEY: process.env.RESEND_API_KEY,
-  EMAIL_FROM: process.env.EMAIL_FROM,
-};
+import { z } from "zod";
+
+export const env = z
+  .object({
+    PORT: z.coerce.number().default(3000),
+    DATABASE_URL: z.url(),
+    REDIS_HOST: z.string(),
+    REDIS_PORT: z.coerce.number(),
+    NODE_ENV: z.enum(["development", "production", "test"]),
+    RESEND_API_KEY: z.string(),
+    EMAIL_FROM: z.string(),
+    JWT_SECRET: z.string().min(32),
+    JWT_EXPIRES_IN: z.string(),
+  })
+  .parse(process.env);
