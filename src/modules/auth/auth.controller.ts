@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { asyncHandler } from "../../utils/asyncHandler";
 import { env } from "../../config/env";
 import {
+  changePasswordService,
   forgotPasswordService,
   loginUserService,
   registerUserService,
@@ -10,6 +11,7 @@ import {
   verifyEmailService,
 } from "./auth.service";
 import { resetPasswordQuerySchema } from "./auth.validation";
+import type { AuthRequest } from "./auth.types";
 
 const register = asyncHandler(async (req: Request, res: Response) => {
   const { email, message } = await registerUserService(req.body);
@@ -91,4 +93,27 @@ const resetPassword = asyncHandler(async (req: Request, res: Response) => {
   });
 });
 
-export { register, resendOTP, verify, login, forgotPassword, resetPassword };
+const changePassword = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { userId } = req.user;
+  const { oldPassword, newPassword } = req.body;
+  const { message } = await changePasswordService({
+    userId,
+    oldPassword,
+    newPassword,
+  });
+
+  res.status(200).json({
+    success: true,
+    message,
+  });
+});
+
+export {
+  register,
+  resendOTP,
+  verify,
+  login,
+  forgotPassword,
+  resetPassword,
+  changePassword,
+};

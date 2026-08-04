@@ -1,5 +1,6 @@
 import { Router } from "express";
 import {
+  changePassword,
   forgotPassword,
   login,
   register,
@@ -9,6 +10,7 @@ import {
 } from "./auth.controller";
 import { validateSchema } from "../../middleware/validate.middleware";
 import {
+  changePasswordSchema,
   forgotPasswordSchema,
   loginSchema,
   registerSchema,
@@ -16,6 +18,7 @@ import {
   resetPasswordSchema,
   verifyEmailSchema,
 } from "./auth.validation";
+import { authorize } from "../../middleware/auth.middleware";
 
 const authRouter = Router();
 
@@ -32,6 +35,12 @@ authRouter.post(
   "/reset-password",
   validateSchema(resetPasswordSchema),
   resetPassword,
+);
+authRouter.post(
+  "/change-password",
+  authorize,
+  validateSchema(changePasswordSchema),
+  changePassword,
 );
 
 export { authRouter };

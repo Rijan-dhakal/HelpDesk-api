@@ -6,27 +6,14 @@ import { emailQueue } from "../../queues/email.queue";
 import { ApiError } from "../../utils/apiError";
 import { generateToken } from "../../helper/jwt";
 import { hashToken } from "../../helper/hash-reset-token";
-
-interface IRegisterUser {
-  fullName: string;
-  email: string;
-  password: string;
-}
-
-interface IVerifyEmail {
-  email: string;
-  otp: string;
-}
-
-interface ILoginUser {
-  email: string;
-  password: string;
-}
-
-interface IResetPassword {
-  token: string;
-  newPassword: string;
-}
+import type {
+  IChangePassword,
+  ILoginUser,
+  IParsedData,
+  IRegisterUser,
+  IResetPassword,
+  IVerifyEmail,
+} from "./auth.types";
 
 const OTP_COOLDOWN = 120; // 120 seconds cooldown for resend OTP
 
@@ -38,6 +25,9 @@ const registerUserService = async ({
   // Check if user with the same email already exists
   const existingUser = await prisma.user.findUnique({
     where: { email },
+    select: {
+      id: true,
+    },
   });
 
   if (existingUser) {
@@ -174,7 +164,18 @@ const verifyEmailService = async ({ email, otp }: IVerifyEmail) => {
     throw new ApiError(400, "Data not found for this email");
   }
 
-  const parsedData = JSON.parse(userData);
+  const parsedData: IParsedData = JSON.parse(userData);
+
+  const existingUser = await prisma.user.findUnique({
+    where: { email: parsedData.email },
+    select: {
+      id: true,
+    },
+  });
+
+  if (existingUser) {
+    throw new ApiError(400, "User already exist");
+  }
 
   if (parsedData.otp !== otp) {
     throw new ApiError(400, "Invalid OTP");
@@ -207,6 +208,13 @@ const verifyEmailService = async ({ email, otp }: IVerifyEmail) => {
 const loginUserService = async ({ email, password }: ILoginUser) => {
   const user = await prisma.user.findUnique({
     where: { email },
+    select: {
+      id: true,
+      fullName: true,
+      email: true,
+      role: true,
+      password: true,
+    },
   });
 
   if (!user) {
@@ -242,6 +250,9 @@ const forgotPasswordService = async ({ email }: { email: string }) => {
   //  Check if user exist
   const user = await prisma.user.findUnique({
     where: { email },
+    select: {
+      fullName: true,
+    },
   });
 
   //  return message even if user does not exist to prevent email enumeration
@@ -328,6 +339,55 @@ const resetPasswordService = async ({ token, newPassword }: IResetPassword) => {
   };
 };
 
+const changePasswordService = async ({
+  userId,
+  oldPassword,
+  newPassword,
+}: IChangePassword) => {
+  // check if user exists or not
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      password: true,
+    },
+  });
+
+  if (!user) {
+    throw new ApiError(401, "Unauthorized");
+  }
+
+  // check if old password is valid or not
+  const isPasswordValid = await bcrypt.compare(oldPassword, user.password);
+
+  if (!isPasswordValid) {
+    throw new ApiError(401, "Invalid old password");
+  }
+
+  const isSamePassword = await bcrypt.compare(newPassword, user.password);
+
+  if (isSamePassword) {
+    throw new ApiError(
+      400,
+      "New password must be different from the current password",
+    );
+  }
+
+  // hash new password
+  const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+
+  // update the new password
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      password: hashedNewPassword,
+    },
+  });
+
+  return {
+    message: "Password changed successfully",
+  };
+};
+
 export {
   registerUserService,
   resendOtpService,
@@ -335,4 +395,5 @@ export {
   loginUserService,
   forgotPasswordService,
   resetPasswordService,
+  changePasswordService,
 };

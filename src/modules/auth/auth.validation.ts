@@ -45,6 +45,15 @@ const resetPasswordQuerySchema = z.object({
   token: z.string().min(1, { message: "Token is required" }),
 });
 
+const changePasswordSchema = z.object({
+  oldPassword: z
+    .string()
+    .min(8, { message: "Password must be at least 8 characters long" }),
+  newPassword: z
+    .string()
+    .min(8, { message: "Password must be at least 8 characters long" }),
+});
+
 export {
   loginSchema,
   registerSchema,
@@ -53,4 +62,5 @@ export {
   forgotPasswordSchema,
   resetPasswordSchema,
   resetPasswordQuerySchema,
+  changePasswordSchema,
 };
