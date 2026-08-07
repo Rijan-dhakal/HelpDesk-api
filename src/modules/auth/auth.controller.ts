@@ -4,6 +4,7 @@ import { env } from "../../config/env";
 import {
   changePasswordService,
   forgotPasswordService,
+  getMeService,
   loginUserService,
   registerUserService,
   resendOtpService,
@@ -108,6 +109,16 @@ const changePassword = asyncHandler(async (req: AuthRequest, res: Response) => {
   });
 });
 
+const getMe = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { userId } = req.user;
+  const user = await getMeService({ userId });
+
+  res.status(200).json({
+    success: true,
+    data: user,
+  });
+});
+
 export {
   register,
   resendOTP,
@@ -116,4 +127,5 @@ export {
   forgotPassword,
   resetPassword,
   changePassword,
+  getMe,
 };

@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   changePassword,
   forgotPassword,
+  getMe,
   login,
   register,
   resendOTP,
@@ -42,5 +43,6 @@ authRouter.post(
   validateSchema(changePasswordSchema),
   changePassword,
 );
+authRouter.get("/me", authorize, getMe);
 
 export { authRouter };

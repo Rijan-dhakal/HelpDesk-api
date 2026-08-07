@@ -388,6 +388,24 @@ const changePasswordService = async ({
   };
 };
 
+const getMeService = async ({ userId }: { userId: string }) => {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      fullName: true,
+      role: true,
+      email: true,
+    },
+  });
+
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  return user;
+};
+
 export {
   registerUserService,
   resendOtpService,
@@ -396,4 +414,5 @@ export {
   forgotPasswordService,
   resetPasswordService,
   changePasswordService,
+  getMeService,
 };
