@@ -6,6 +6,7 @@ import {
   forgotPasswordService,
   getMeService,
   loginUserService,
+  accessTokenService,
   registerUserService,
   resendOtpService,
   resetPasswordService,
@@ -46,14 +47,21 @@ const verify = asyncHandler(async (req: Request, res: Response) => {
 });
 
 const login = asyncHandler(async (req: Request, res: Response) => {
-  const { message, token, user } = await loginUserService(req.body);
-  res.cookie("access_token", token, {
+  const { message, accessToken, refreshToken, user } = await loginUserService(
+    req.body,
+  );
+
+  res.cookie("refresh_token", refreshToken, {
     httpOnly: true,
     secure: env.NODE_ENV === "production",
     sameSite: "strict",
+    maxAge: 30 * 24 * 60 * 60 * 1000,
+    path: "/api/auth/generate-access-token",
   });
+
   res.status(200).json({
     success: true,
+    accessToken,
     message,
     data: user,
   });
@@ -119,6 +127,25 @@ const getMe = asyncHandler(async (req: AuthRequest, res: Response) => {
   });
 });
 
+const generateAccessToken = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const refreshToken = req.cookies.refresh_token;
+    if (!refreshToken) {
+      return res.status(401).json({
+        success: false,
+        message: "Refresh token not found",
+      });
+    }
+
+    const { message, token } = await accessTokenService(refreshToken);
+    res.status(200).json({
+      success: true,
+      accessToken: token,
+      message,
+    });
+  },
+);
+
 export {
   register,
   resendOTP,
@@ -128,4 +155,5 @@ export {
   resetPassword,
   changePassword,
   getMe,
+  generateAccessToken,
 };

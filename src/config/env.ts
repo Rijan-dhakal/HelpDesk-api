@@ -9,8 +9,10 @@ export const env = z
     NODE_ENV: z.enum(["development", "production", "test"]),
     RESEND_API_KEY: z.string(),
     EMAIL_FROM: z.string(),
-    JWT_SECRET: z.string().min(32),
-    JWT_EXPIRES_IN: z.string(),
+    JWT_ACCESS_SECRET: z.string().min(32),
+    JWT_ACCESS_EXPIRES_IN: z.string(),
+    JWT_REFRESH_SECRET: z.string().min(32),
+    JWT_REFRESH_EXPIRES_IN: z.string(),
     FRONTEND_URL: z.url(),
   })
   .parse(process.env);

@@ -4,7 +4,7 @@ import { prisma } from "../../config/prisma";
 import { redisClient } from "../../config/redis";
 import { emailQueue } from "../../queues/email.queue";
 import { ApiError } from "../../utils/apiError";
-import { generateToken } from "../../helper/jwt";
+import { generateRefreshToken, generateAccessToken } from "../../helper/jwt";
 import { hashToken } from "../../helper/hash-reset-token";
 import type {
   IChangePassword,
@@ -228,15 +228,37 @@ const loginUserService = async ({ email, password }: ILoginUser) => {
   }
 
   // generate jwt token
-  const token = generateToken({ userId: user.id, role: user.role });
+  const token = generateAccessToken({ userId: user.id, role: user.role });
 
   if (!token) {
     throw new ApiError(500, "Failed to generate token");
   }
 
+  // generate refresh token
+  const refreshToken = generateRefreshToken({
+    userId: user.id,
+    role: user.role,
+  });
+
+  if (!refreshToken) {
+    throw new ApiError(500, "Failed to generate refresh token");
+  }
+
+  // hash the refresh token before storing it in redis
+  const hashedRefreshToken = hashToken(refreshToken);
+
+  // store the hashed refresh token in redis
+  await redisClient.set(
+    `refresh-token:${hashedRefreshToken}`,
+    user.id,
+    "EX",
+    30 * 24 * 60 * 60, // 30 days
+  );
+
   return {
     message: "Login successful",
-    token,
+    accessToken: token,
+    refreshToken,
     user: {
       id: user.id,
       fullName: user.fullName,
@@ -406,6 +428,62 @@ const getMeService = async ({ userId }: { userId: string }) => {
   return user;
 };
 
+const accessTokenService = async (refreshToken: string) => {
+  // check if refresh token is provided
+  if (!refreshToken) {
+    throw new ApiError(401, "Refresh token is required");
+  }
+
+  // hash token
+  const hashedToken = hashToken(refreshToken);
+
+  // check if the hashed refresh token exists in redis
+  const userId = await redisClient.get(`refresh-token:${hashedToken}`);
+
+  if (!userId) {
+    throw new ApiError(401, "Invalid or expired refresh token");
+  }
+
+  // fetch user from database
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      role: true,
+    },
+  });
+
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  // generate new access token
+  const newAccessToken = generateRefreshToken({
+    userId: user.id,
+    role: user.role,
+  });
+
+  if (!newAccessToken) {
+    throw new ApiError(500, "Failed to generate access token");
+  }
+
+  await redisClient.del(`refresh-token:${hashedToken}`);
+
+  // store the new refresh token in redis
+  const newHashedToken = hashToken(newAccessToken);
+  await redisClient.set(
+    `refresh-token:${newHashedToken}`,
+    user.id,
+    "EX",
+    30 * 24 * 60 * 60, // 30 days
+  );
+
+  return {
+    message: "Access token refreshed successfully",
+    token: newAccessToken,
+  };
+};
+
 export {
   registerUserService,
   resendOtpService,
@@ -415,4 +493,5 @@ export {
   resetPasswordService,
   changePasswordService,
   getMeService,
+  accessTokenService,
 };
