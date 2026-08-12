@@ -484,6 +484,17 @@ const accessTokenService = async (refreshToken: string) => {
   };
 };
 
+const logoutService = async ({ refreshToken }: { refreshToken: string }) => {
+  // hash the refresh token to compare in redis
+  const hashedToken = hashToken(refreshToken);
+
+  await redisClient.del(`refresh-token:${hashedToken}`);
+
+  return {
+    message: "User logged out successfully",
+  };
+};
+
 export {
   registerUserService,
   resendOtpService,
@@ -494,4 +505,5 @@ export {
   changePasswordService,
   getMeService,
   accessTokenService,
+  logoutService,
 };

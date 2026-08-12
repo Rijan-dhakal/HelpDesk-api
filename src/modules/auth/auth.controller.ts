@@ -11,6 +11,7 @@ import {
   resendOtpService,
   resetPasswordService,
   verifyEmailService,
+  logoutService,
 } from "./auth.service";
 import { resetPasswordQuerySchema } from "./auth.validation";
 import type { AuthRequest } from "./auth.types";
@@ -146,6 +147,29 @@ const generateAccessToken = asyncHandler(
   },
 );
 
+const logout = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const refreshToken = req.cookies.refresh_token;
+  if (!refreshToken) {
+    return res.status(401).json({
+      success: false,
+      message: "Refresh token not found",
+    });
+  }
+  const { message } = await logoutService({ refreshToken });
+
+  res.clearCookie("refresh_token", {
+    httpOnly: true,
+    secure: env.NODE_ENV === "production",
+    sameSite: "strict",
+    path: "/api/auth/generate-access-token",
+  });
+
+  res.status(200).json({
+    success: true,
+    message,
+  });
+});
+
 export {
   register,
   resendOTP,
@@ -156,4 +180,5 @@ export {
   changePassword,
   getMe,
   generateAccessToken,
+  logout,
 };
