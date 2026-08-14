@@ -21,25 +21,57 @@ import {
   verifyEmailSchema,
 } from "./auth.validation";
 import { authorize } from "../../middleware/auth.middleware";
+import {
+  authEmailBasedLimiter,
+  authIpBasedLimiter,
+  forgotPasswordAndResendOtpLimiter,
+} from "../../middleware/rate-limit/auth";
 
 const authRouter = Router();
 
-authRouter.post("/register", validateSchema(registerSchema), register);
+authRouter.post(
+  "/register",
+  authEmailBasedLimiter,
+  authIpBasedLimiter,
+  validateSchema(registerSchema),
+  register,
+);
 
-authRouter.post("/resend-otp", validateSchema(resendOtpSchema), resendOTP);
+authRouter.post(
+  "/resend-otp",
+  forgotPasswordAndResendOtpLimiter,
+  authIpBasedLimiter,
+  validateSchema(resendOtpSchema),
+  resendOTP,
+);
 
-authRouter.post("/verify-email", validateSchema(verifyEmailSchema), verify);
+authRouter.post(
+  "/verify-email",
+  authEmailBasedLimiter,
+  authIpBasedLimiter,
+  validateSchema(verifyEmailSchema),
+  verify,
+);
 
-authRouter.post("/login", validateSchema(loginSchema), login);
+authRouter.post(
+  "/login",
+  authEmailBasedLimiter,
+  authIpBasedLimiter,
+  validateSchema(loginSchema),
+  login,
+);
 
 authRouter.post(
   "/forgot-password",
+  forgotPasswordAndResendOtpLimiter,
+  authIpBasedLimiter,
   validateSchema(forgotPasswordSchema),
   forgotPassword,
 );
 
 authRouter.post(
   "/reset-password",
+  authIpBasedLimiter,
   validateSchema(resetPasswordSchema),
   resetPassword,
 );
