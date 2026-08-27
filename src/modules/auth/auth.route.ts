@@ -26,6 +26,10 @@ import {
   authIpBasedLimiter,
   forgotPasswordAndResendOtpLimiter,
 } from "../../middleware/rate-limit/auth";
+import {
+  apiRateLimiter,
+  authenticatedUserRateLimiter,
+} from "../../middleware/rate-limit/api";
 
 const authRouter = Router();
 
@@ -79,12 +83,25 @@ authRouter.post(
 authRouter.post(
   "/change-password",
   authorize,
+  authenticatedUserRateLimiter,
+  apiRateLimiter,
   validateSchema(changePasswordSchema),
   changePassword,
 );
 
-authRouter.get("/me", authorize, getMe);
+authRouter.get(
+  "/me",
+  authenticatedUserRateLimiter,
+  apiRateLimiter,
+  authorize,
+  getMe,
+);
 
-authRouter.post("/generate-access-token", generateAccessToken);
+authRouter.post(
+  "/generate-access-token",
+  authenticatedUserRateLimiter,
+  apiRateLimiter,
+  generateAccessToken,
+);
 
 export { authRouter };

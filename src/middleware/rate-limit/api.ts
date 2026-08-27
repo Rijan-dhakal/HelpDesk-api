@@ -11,3 +11,14 @@ export const apiRateLimiter = rateLimit({
 
   store: redisStore(),
 });
+
+export const authenticatedUserRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 30,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+
+  keyGenerator: (req) => `user:${req.user!.userId}`,
+
+  store: redisStore(),
+});
