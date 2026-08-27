@@ -3,10 +3,9 @@ import type { NextFunction, Request, Response } from "express";
 import { asyncHandler } from "../utils/asyncHandler";
 import { ApiError } from "../utils/apiError";
 import { env } from "../config/env";
-import type { AuthRequest } from "../modules/auth/auth.types";
 
 const authorize = asyncHandler(
-  async (req: AuthRequest, res: Response, next: NextFunction) => {
+  async (req: Request, _res: Response, next: NextFunction) => {
     const token = req.cookies.access_token;
 
     if (!token) {
